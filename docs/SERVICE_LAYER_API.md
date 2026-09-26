@@ -415,6 +415,28 @@ Handles artist identity and account verification requests.
 
 ---
 
+### 16. Contract Upgrade Service (`contractUpgradeService.ts`)
+
+Manages in-place WASM bytecode upgrades for Soroban smart contracts (`artist`, `catalog`, `royalty`).
+
+#### Hooks & Endpoints
+
+##### `usePrepareContractUpgrade()`
+- **Endpoint**: `POST /contract/onchain/prepare-upgrade`
+- **Payload**: `{ contractId: string; newWasmHash: string; adminAddress: string; migrationData?: Record<string, unknown> }`
+- **Response**: `PreparedContractUpgradeResponse` `{ xdr: string; networkPassphrase: string; contractId: string; newWasmHash: string }`
+
+##### `useSubmitContractUpgrade()`
+- **Endpoint**: `POST /contract/onchain/submit-upgrade`
+- **Payload**: `{ contractId: string; signedXdr: string; newWasmHash: string }`
+- **Response**: `SubmitContractUpgradeResponse` `{ txHash: string; contractId: string; newWasmHash: string; previousWasmHash?: string; upgradedAt: string }`
+
+##### `useGetContractInfo()`
+- **Endpoint**: `GET /contract/:contractId/info`
+- **Response**: `ContractInfo` `{ contractId: string; wasmHash: string; adminAddress: string; version?: string; deployedAt?: string }`
+
+---
+
 ## Standard Error Handling & Toast Normalization
 
 All service layer errors are processed through `normalizeError` to guarantee:
