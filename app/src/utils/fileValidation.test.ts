@@ -90,9 +90,8 @@ describe("validateFile", () => {
     });
 
     it("falls back to the extension for application/octet-stream", () => {
-      expect(validateFile(makeFile("song.wav", "application/octet-stream"), AUDIO_FILE_RULES).valid).toBe(
-        true
-      );
+      const file = makeFile("song.wav", "application/octet-stream");
+      expect(validateFile(file, AUDIO_FILE_RULES).valid).toBe(true);
     });
 
     it("does not let a misleading extension override a real, disallowed MIME type", () => {
