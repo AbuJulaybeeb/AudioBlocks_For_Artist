@@ -2,6 +2,10 @@
 
 This directory contains React Query hooks and API client services for AudioBlocks For Artist.
 
+Cache freshness windows and invalidation rules are defined centrally in
+[`api/cachePolicy.ts`](../api/cachePolicy.ts) — see
+[Caching Strategy](../../docs/SERVICE_LAYER_API.md#caching-strategy).
+
 For full API endpoint documentation, parameter definitions, and response shapes, see:
 [docs/SERVICE_LAYER_API.md](../../docs/SERVICE_LAYER_API.md)
 
@@ -22,5 +26,6 @@ For full API endpoint documentation, parameter definitions, and response shapes,
 | Overview Service | `overviewService.ts` | Dashboard metrics and activity feeds |
 | Royalty Distribution | `royaltyDistributionService.ts` | Multi-party royalty splitting |
 | Scheduled Release | `scheduledReleaseService.ts` | Release scheduling |
+| Track Service | `trackService.ts` | Track edits with optimistic UI updates and rollback |
 | Upload Service | `uploadService.ts` | Chunked audio uploads, cover art, and finalization |
 | Verification Service | `verificationService.ts` | Artist verification requests |

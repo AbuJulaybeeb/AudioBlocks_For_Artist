@@ -2,12 +2,15 @@
 
 import Link from "next/link";
 import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
 import { toast } from "sonner";
 import MusicLoader from "@/components/MusicLoader";
+import { clearQueryCache } from "@/api/queryClientInstance";
 import useAuthServices from "@/services/authService";
 import { LoginEmailPayload } from "@/types";
+import { loginFormSchema } from "@/types/formValidation";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -18,11 +21,13 @@ export default function LoginPage() {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<LoginEmailPayload>();
+  } = useForm<LoginEmailPayload>({ resolver: zodResolver(loginFormSchema) });
 
   const onSubmit = async (data: LoginEmailPayload) => {
     try {
       const result = await loginMutation.mutateAsync(data);
+      // Never let a previous artist's cached dashboard data outlive their session.
+      clearQueryCache();
       Cookies.set("audioblocks_jwt", result.token);
       toast.success("Logged in successfully!");
       router.push("/dashboard");
@@ -44,7 +49,7 @@ export default function LoginPage() {
           <p className="text-sm text-[#A3A3A3] mt-1">Welcome back to AudioBlocks.</p>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
           <div className="flex flex-col">
             <label htmlFor="login-email" className="text-sm font-medium text-white mb-2">
               Email
@@ -52,7 +57,7 @@ export default function LoginPage() {
             <input
               id="login-email"
               type="email"
-              {...register("email", { required: "Email is required" })}
+              {...register("email")}
               placeholder="you@example.com"
               maxLength={254}
               aria-invalid={errors.email ? "true" : "false"}
@@ -74,7 +79,7 @@ export default function LoginPage() {
             <input
               id="login-password"
               type="password"
-              {...register("password", { required: "Password is required" })}
+              {...register("password")}
               placeholder="••••••••"
               aria-invalid={errors.password ? "true" : "false"}
               aria-describedby={errors.password ? "login-password-error" : undefined}

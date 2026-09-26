@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Dashboard caching strategy** (#441): Central cache policy (`api/cachePolicy.ts`) with named freshness tiers and shared query keys, used by every dashboard service. Song/album publishes now refresh the overview, statistics and recent-activity caches, events/merch get explicit freshness windows, and the cache is cleared on login so data never leaks between artists.
+- **Optimistic track edits** (#442): `useOptimisticMutation` hook (cache snapshot, optimistic write, rollback, invalidate on settle), `trackService`, and an Edit track dialog in My Music — changes appear instantly and revert with an error toast if the save fails.
+- **Artist form validation** (#443): Zod schemas and a `getFormErrors` helper for login, events, merch, verification and artist-name forms, with accessible inline errors. Album price validation tightened.
+- **Upload file validation** (#444): `utils/fileValidation.ts` checks file type and size before upload (audio ≤ 200 MB, cover ≤ 5 MB JPG/PNG, profile image ≤ 2 MB JPG/PNG, attachments ≤ 10 MB) for song, album, add-music, profile and comment inputs and the shared `FileUpload` component.
 - **On-chain royalty distribution** (#294): Service and types for automatic royalty splitting via Soroban smart contracts. Includes `useRoyaltyDistributionService` hook with prepare/submit/update mutations, basis-point validation, and share calculation utilities.
 - **Soroban contract error handling** (#288): `translateContractError()` maps raw contract errors to user-friendly messages with categories, severity levels, and actionable resolution steps. Covers auth, network, contract, validation, and insufficient balance errors.
 - **IPFS metadata viewer** (#287): `IPFSMetadataViewer` component fetches and displays metadata stored on IPFS for minted songs and artists. Supports multiple IPFS gateways, formatted and raw JSON views, loading/error states, and responsive layout.

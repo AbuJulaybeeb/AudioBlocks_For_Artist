@@ -26,11 +26,19 @@ import { MUSIC_GENRES } from "../shared/music_genre";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import { useToast } from "@/hooks/useToastHandler";
 import useAlbumServices from "@/services/albumService";
+import {
+  AUDIO_FILE_RULES,
+  COVER_IMAGE_RULES,
+  toAcceptAttribute,
+  validateFile,
+} from "@/utils/fileValidation";
 
 const Album = () => {
   const toast = useToast();
   const [coverImage, setCoverImage] = useState<string | null>(null);
   const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverError, setCoverError] = useState<string | null>(null);
+  const [musicFileError, setMusicFileError] = useState<string | null>(null);
   const [albumMusicFiles, setAlbumMusicFiles] = useState<
     Array<{
       id: number;
@@ -77,6 +85,13 @@ const Album = () => {
   const handleCoverUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      const { valid, error } = validateFile(file, COVER_IMAGE_RULES);
+      if (!valid) {
+        setCoverError(error);
+        e.target.value = "";
+        return;
+      }
+      setCoverError(null);
       setCoverFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -108,6 +123,14 @@ const Album = () => {
   const handleAlbumFileUpload = (id: number, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    const { valid, error } = validateFile(file, AUDIO_FILE_RULES);
+    if (!valid) {
+      setMusicFileError(error);
+      e.target.value = "";
+      return;
+    }
+    setMusicFileError(null);
 
     const fileSize = formatFileSize(file.size);
     setAlbumMusicFiles((prev) => {
@@ -266,7 +289,7 @@ const Album = () => {
                     if (el) albumFileInputRefs.current.set(0, el);
                   }}
                   type="file"
-                  accept="audio/*"
+                  accept={toAcceptAttribute(AUDIO_FILE_RULES)}
                   onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (file) {
@@ -324,7 +347,7 @@ const Album = () => {
                             if (el) albumFileInputRefs.current.set(file.id, el);
                           }}
                           type="file"
-                          accept="audio/*"
+                          accept={toAcceptAttribute(AUDIO_FILE_RULES)}
                           onChange={(e) => handleAlbumFileUpload(file.id, e)}
                           className="hidden"
                           aria-label="Upload album music file"
@@ -341,6 +364,11 @@ const Album = () => {
                   </div>
                 ))}
               </div>
+            )}
+            {musicFileError && (
+              <p className="text-xs text-red-500" role="alert">
+                {musicFileError}
+              </p>
             )}
           </div>
         </div>
@@ -402,11 +430,16 @@ const Album = () => {
           <input
             ref={coverInputRef}
             type="file"
-            accept="image/*"
+            accept={toAcceptAttribute(COVER_IMAGE_RULES)}
             onChange={handleCoverUpload}
             className="hidden"
             aria-label="Upload cover image"
           />
+          {coverError && (
+            <p className="text-[10px] text-red-500 mb-2" role="alert">
+              {coverError}
+            </p>
+          )}
           <button
             onClick={() => coverInputRef.current?.click()}
             disabled={isBusy}

@@ -18,22 +18,13 @@ import { analytics } from "@/lib/analytics";
 import { isRetryableError, getErrorMessage } from "@/utils/errorRecovery";
 import { sanitize } from "@/utils/sanitize";
 import { extractAudioMetadata, formatDuration, type AudioMetadata } from "@/utils/audioMetadata";
+import {
+  AUDIO_FILE_RULES,
+  COVER_IMAGE_RULES,
+  toAcceptAttribute,
+  validateFile,
+} from "@/utils/fileValidation";
 
-const ALLOWED_AUDIO_TYPES = new Set([
-  "audio/mpeg",
-  "audio/wav",
-  "audio/wave",
-  "audio/x-wav",
-  "audio/mp4",
-  "audio/m4a",
-  "audio/aac",
-  "audio/ogg",
-  "audio/flac",
-  "audio/x-flac",
-  "audio/webm",
-]);
-
-const MAX_FILE_SIZE_BYTES = 200 * 1024 * 1024; // 200 MB
 const MAX_RETRY_ATTEMPTS = 3;
 
 const Song = () => {
@@ -56,6 +47,7 @@ const Song = () => {
     status: "uploading" | "success" | "failed" | "cancelled";
   } | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [coverError, setCoverError] = useState<string | null>(null);
   const [audioMetadata, setAudioMetadata] = useState<AudioMetadata | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
@@ -110,6 +102,14 @@ const Song = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    const { valid, error } = validateFile(file, COVER_IMAGE_RULES);
+    if (!valid) {
+      setCoverError(error);
+      e.target.value = "";
+      return;
+    }
+
+    setCoverError(null);
     setCoverFile(file);
 
     const reader = new FileReader();
@@ -132,18 +132,8 @@ const Song = () => {
     return ext ? ext.toUpperCase() : "Unknown";
   };
 
-  const validateAudioFile = (file: File): string | null => {
-    if (
-      !ALLOWED_AUDIO_TYPES.has(file.type) &&
-      !file.name.match(/\.(mp3|wav|m4a|aac|ogg|flac|webm)$/i)
-    ) {
-      return `Unsupported file type. Please upload an audio file (MP3, WAV, M4A, AAC, OGG, FLAC, WebM).`;
-    }
-    if (file.size > MAX_FILE_SIZE_BYTES) {
-      return `File too large. Maximum size is 200 MB, but your file is ${formatFileSize(file.size)}.`;
-    }
-    return null;
-  };
+  const validateAudioFile = (file: File): string | null =>
+    validateFile(file, AUDIO_FILE_RULES).error;
 
   const handleMusicUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -555,11 +545,16 @@ const Song = () => {
           <input
             ref={coverInputRef}
             type="file"
-            accept="image/*"
+            accept={toAcceptAttribute(COVER_IMAGE_RULES)}
             onChange={handleCoverUpload}
             className="hidden"
             aria-label="Upload cover image"
           />
+          {coverError && (
+            <p className="text-[10px] text-red-500 mb-2" role="alert">
+              {coverError}
+            </p>
+          )}
 
           <button
             onClick={() => !isBusy && coverInputRef.current?.click()}
@@ -631,7 +626,7 @@ const Song = () => {
           <input
             ref={fileInputRef}
             type="file"
-            accept="audio/*"
+            accept={toAcceptAttribute(AUDIO_FILE_RULES)}
             onChange={handleMusicUpload}
             className="hidden"
             aria-label="Upload audio file"

@@ -20,6 +20,7 @@ import { useRole } from "@/hooks/useRole";
 import { ROLE_BADGE_STYLES, getSettingsRestrictionReason } from "@/types/role";
 import { isRetryableError, getErrorMessage } from "@/utils/errorRecovery";
 import { encodeHtmlEntities } from "@/utils/textEncoder";
+import { PROFILE_IMAGE_RULES, toAcceptAttribute, validateFile } from "@/utils/fileValidation";
 import VerifiedBadge from "@/components/common/VerifiedBadge";
 import VerificationApplicationModal from "@/components/common/modals/VerificationApplicationModal";
 import {
@@ -108,6 +109,13 @@ export default function ProfilePage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    const { valid, error } = validateFile(file, PROFILE_IMAGE_RULES);
+    if (!valid) {
+      toast.error(error ?? "Invalid profile image");
+      e.target.value = "";
+      return;
+    }
+
     const reader = new FileReader();
     reader.onloadend = () => {
       setCropSrc(reader.result as string);
@@ -120,6 +128,13 @@ export default function ProfilePage() {
 
   const handleCropComplete = (blob: Blob) => {
     const croppedFile = new File([blob], "profile-avatar.jpg", { type: "image/jpeg" });
+    // Cropping re-encodes the image, so re-check the size the backend will actually receive.
+    const { valid, error } = validateFile(croppedFile, PROFILE_IMAGE_RULES);
+    if (!valid) {
+      toast.error(error ?? "Invalid profile image");
+      setCropSrc(null);
+      return;
+    }
     setValue("profileImage", croppedFile);
     setProfileImage(URL.createObjectURL(blob));
     setCropSrc(null);
@@ -448,7 +463,7 @@ export default function ProfilePage() {
 
             <input
               type="file"
-              accept="image/*"
+              accept={toAcceptAttribute(PROFILE_IMAGE_RULES)}
               className="hidden"
               {...register("profileImage")}
               ref={profileInputRef}

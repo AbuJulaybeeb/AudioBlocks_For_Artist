@@ -23,7 +23,10 @@ This document provides complete documentation for the frontend service layer loc
    - [13. Scheduled Release Service (`scheduledReleaseService.ts`)](#13-scheduled-release-service-scheduledreleaseservicets)
    - [14. Upload Service (`uploadService.ts`)](#14-upload-service-uploadservicets)
    - [15. Verification Service (`verificationService.ts`)](#15-verification-service-verificationservicets)
-3. [Standard Error Handling & Toast Normalization](#standard-error-handling--toast-normalization)
+   - [16. Track Service (`trackService.ts`)](#16-track-service-trackservicets)
+3. [Caching Strategy](#caching-strategy)
+4. [Optimistic Updates](#optimistic-updates)
+5. [Standard Error Handling & Toast Normalization](#standard-error-handling--toast-normalization)
 
 ---
 
@@ -31,7 +34,7 @@ This document provides complete documentation for the frontend service layer loc
 
 All services utilize custom React Query abstractions (`useGet`, `usePost`, `usePut`, `useDelete`) built on top of an Axios instance (`@/api/axios`). API endpoint constants are stored in `@/api/api-endpoint.ts`.
 
-- **Caching & Stale Times**: Queries default to cached responses with configurable `staleTime`.
+- **Caching & Stale Times**: Every dashboard read takes its `staleTime` from one central policy — see [Caching Strategy](#caching-strategy).
 - **Mock Data Fallbacks**: Surfaces check `featureFlags` (`@/lib/featureFlags.ts`) when API endpoints are not yet deployed or in preview environments.
 - **Normalization**: Errors are normalized through `normalizeError` to guarantee status code handling (400, 401, 403, 404, 422, 500) and toast notifications.
 
@@ -48,7 +51,7 @@ Manages fetching artist album collections.
 ##### `useGetAlbums(enabled?: boolean)`
 - **Endpoint**: `GET /api/v1/albums`
 - **Params**: `enabled` (boolean, default `true`) — controls query execution.
-- **Cache Stale Time**: 2 minutes (`1000 * 60 * 2`).
+- **Cache Stale Time**: 2 minutes (`DASHBOARD_CACHE.albums`).
 - **Response Shape**: `AlbumsResponse`
   ```typescript
   interface Album {
@@ -397,6 +400,20 @@ Handles chunked audio file uploads, cover image processing, and IPFS metadata as
 - **Endpoint**: `POST /api/v1/upload/finalize`
 - **Payload**: `{ fileId: string; totalChunks: number; title: string; description: string; genre: string; composers: string; coverArtPath: string }`
 - **Response**: `FinalizeSongResponse` `{ data: { id: string; ipfsHash?: string } }`
+- **Cache invalidation**: overview, statistics and recent-activity queries (`SONG_PUBLISHED_INVALIDATIONS`).
+
+##### Client-side file validation
+
+Files are checked before any bytes are uploaded, using `validateFile()` from `@/utils/fileValidation`. The limits mirror the backend's multer configuration:
+
+| Input | Allowed types | Max size |
+|---|---|---|
+| Audio (song / album tracks) | MP3, WAV, M4A, AAC, OGG, FLAC, WebM | 200 MB |
+| Cover image | JPG, PNG | 5 MB |
+| Profile image | JPG, PNG | 2 MB |
+| Comment attachment | JPG, PNG, GIF, WebP, PDF, TXT, MP3, WAV | 10 MB |
+
+A rejected file shows an inline `role="alert"` message (or a toast) and is never selected. The shared `FileUpload` component accepts a `validationRules` prop to opt into the same checks.
 
 ---
 
@@ -412,6 +429,50 @@ Handles artist identity and account verification requests.
 ##### `useSubmitVerification()`
 - **Endpoint**: `POST /api/v1/verification/apply`
 - **Payload**: `{ legalName: string; documentType: string; documentUrl: string }`
+
+---
+
+### 16. Track Service (`trackService.ts`)
+
+Edits a track's title and album with an optimistic UI update (see [Optimistic Updates](#optimistic-updates)).
+
+#### Hooks & Endpoints
+
+##### `useUpdateTrack({ onOptimistic })`
+- **Endpoint**: `PATCH /song/:id` (`SONG_ENDPOINTS.UPDATE`)
+- **Payload**: `{ id: number | string; title: string; albumName: string }`
+- **Behavior**: `onOptimistic(edit)` applies the change to the caller's state immediately and returns an undo function; on failure the undo runs and an error toast explains the edit was reverted.
+- **Mock data**: when `NEXT_PUBLIC_USE_MOCK_DATA=true` (`featureFlags.useMockTracks`) the request is simulated locally instead of calling the API.
+
+---
+
+## Caching Strategy
+
+Dashboard reads are cached by React Query. `app/src/api/cachePolicy.ts` is the single source of truth:
+
+| Tier | `staleTime` | Used by |
+|---|---|---|
+| `NONE` | 0 (refetch on every mount) | artist profile |
+| `SHORT` | 1 minute | overview KPIs, analytics, transactions, comments, merch orders |
+| `MEDIUM` | 2 minutes | recent activity, albums, fans engagement, events, merch |
+| `LONG` | 5 minutes | statistics, earnings, platform revenue (and the app-wide default) |
+
+- **Fresh** data renders straight from the cache with no network request; **stale** data is shown immediately while a fresh copy loads in the background. Unused queries are garbage-collected after 10 minutes (`queryClientInstance.ts`).
+- **Invalidation**: mutations invalidate the queries they affect. Finalizing a song upload refreshes the overview, statistics and recent-activity queries; creating an album also refreshes the albums list. Query keys live in `DASHBOARD_QUERY_KEYS` so a mutation can invalidate a query without importing the service that owns it.
+- **Session boundary**: `clearQueryCache()` runs after a successful login so one artist's cached data can never be shown to the next.
+- To add a new dashboard read, pick a tier in `DASHBOARD_CACHE`, add its key to `DASHBOARD_QUERY_KEYS`, and use both in the service hook.
+
+---
+
+## Optimistic Updates
+
+`useOptimisticMutation` (`@/api/queryClient`) is a PUT/PATCH mutation that updates the UI before the server responds:
+
+1. **On mutate** — cancels in-flight refetches of `queryKey`, snapshots the cache, writes the optimistic value (`applyOptimistic`) and runs `onOptimistic` for state that lives outside the cache.
+2. **On error** — restores the snapshot and runs the undo function `onOptimistic` returned, then calls `onError`.
+3. **On settle** — invalidates `queryKey` so the cache converges on the server's truth.
+
+`trackService.useUpdateTrack` uses it for track edits in My Music: the new title appears instantly and reverts (with an error toast) if the save fails. Rollback restores only the edited track's fields, so unrelated reorders or edits made meanwhile are kept.
 
 ---
 
