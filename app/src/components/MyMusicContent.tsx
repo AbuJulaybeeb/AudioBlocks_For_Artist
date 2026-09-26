@@ -13,6 +13,7 @@ import {
   Heart,
   MessageCircle,
   MoreVertical,
+  Pencil,
   Play,
   Search,
 } from "lucide-react";
@@ -20,7 +21,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import ConfirmationDialog from "./shared/ConfirmationDialog";
 import EmptyState from "./shared/EmptyState";
+import EditTrackModal, { EditableTrackFields } from "./common/modals/EditTrackModal";
 import useAlbumServices from "@/services/albumService";
+import useTrackServices, { applyTrackEdit } from "@/services/trackService";
 import { featureFlags } from "@/lib/featureFlags";
 
 const SONG_ORDER_STORAGE_KEY = "my-music-track-order";
@@ -229,6 +232,36 @@ export default function MyMusicContent({ onAlbumSelect }: MyMusicContentProps) {
     songId: null,
   });
 
+  const [editingSongId, setEditingSongId] = useState<number | null>(null);
+  const editingSong = songs.find((song) => song.id === editingSongId) ?? null;
+
+  const { useUpdateTrack } = useTrackServices();
+  const updateTrack = useUpdateTrack({
+    // Show the edit immediately; if the save fails, put back just this track's
+    // previous fields so unrelated edits/reorders made meanwhile are kept.
+    onOptimistic: (edit) => {
+      const previous = songs.find((song) => song.id === edit.id);
+      setSongs((current) => applyTrackEdit(current, edit));
+      setReorderMessage(`${edit.title} updated`);
+      return () => {
+        if (!previous) return;
+        setSongs((current) =>
+          applyTrackEdit(current, {
+            id: previous.id,
+            title: previous.title,
+            albumName: previous.albumName,
+          })
+        );
+        setReorderMessage(`Couldn't save changes to ${edit.title}. They were reverted.`);
+      };
+    },
+  });
+
+  const handleEditSave = (values: EditableTrackFields) => {
+    if (editingSongId === null) return;
+    updateTrack.mutate({ id: editingSongId, ...values });
+  };
+
   const { useGetAlbums } = useAlbumServices();
   const { data: albumsData, isLoading: isAlbumsLoading } = useGetAlbums(!featureFlags.useMockAlbums);
 
@@ -427,7 +460,7 @@ export default function MyMusicContent({ onAlbumSelect }: MyMusicContentProps) {
           />
         ) : (
           <div className="overflow-hidden rounded-xl border border-gray-800 bg-[#111111]">
-            <div className="hidden grid-cols-[40px_1fr_140px_100px_100px_100px_48px] items-center gap-4 border-b border-gray-800 px-4 py-3 text-xs uppercase tracking-wide text-gray-500 md:grid">
+            <div className="hidden grid-cols-[40px_1fr_140px_100px_100px_100px_200px] items-center gap-4 border-b border-gray-800 px-4 py-3 text-xs uppercase tracking-wide text-gray-500 md:grid">
               <span aria-hidden="true" />
               <span>Track</span>
               <span>Duration</span>
@@ -465,7 +498,7 @@ export default function MyMusicContent({ onAlbumSelect }: MyMusicContentProps) {
                     setDraggedSongId(null);
                     setDropTargetId(null);
                   }}
-                  className={`grid grid-cols-[40px_1fr_48px] items-center gap-4 border-b border-gray-800 px-4 py-3 transition-all duration-200 last:border-b-0 md:grid-cols-[40px_1fr_140px_100px_100px_100px_48px] ${isDragging ? "scale-[0.99] opacity-40" : ""} ${isDropTarget ? "border-t-2 border-t-pink-500 bg-pink-500/10" : "hover:bg-white/[0.03]"}`}
+                  className={`grid grid-cols-[40px_1fr_auto] items-center gap-4 border-b border-gray-800 px-4 py-3 transition-all duration-200 last:border-b-0 md:grid-cols-[40px_1fr_140px_100px_100px_100px_200px] ${isDragging ? "scale-[0.99] opacity-40" : ""} ${isDropTarget ? "border-t-2 border-t-pink-500 bg-pink-500/10" : "hover:bg-white/[0.03]"}`}
                 >
                   <button
                     type="button"
@@ -528,6 +561,14 @@ export default function MyMusicContent({ onAlbumSelect }: MyMusicContentProps) {
                     </button>
                     <button
                       type="button"
+                      aria-label={`Edit ${song.title}`}
+                      onClick={() => setEditingSongId(song.id)}
+                      className="flex h-9 w-9 items-center justify-center rounded text-gray-400 hover:bg-white/10 hover:text-white"
+                    >
+                      <Pencil size={16} />
+                    </button>
+                    <button
+                      type="button"
                       aria-label={`Play ${song.title}`}
                       className="flex h-9 w-9 items-center justify-center rounded-full bg-pink-600 hover:bg-pink-500"
                     >
@@ -557,6 +598,16 @@ export default function MyMusicContent({ onAlbumSelect }: MyMusicContentProps) {
           </div>
         )}
       </section>
+
+      <EditTrackModal
+        open={editingSong !== null}
+        onOpenChange={(open) => {
+          if (!open) setEditingSongId(null);
+        }}
+        track={editingSong}
+        albumOptions={albums.map((album) => album.title)}
+        onSave={handleEditSave}
+      />
 
       <ConfirmationDialog
         isOpen={deleteConfirmation.isOpen}

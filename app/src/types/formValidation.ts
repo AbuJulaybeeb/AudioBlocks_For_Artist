@@ -42,6 +42,19 @@ export const albumFormSchema = z.object({
     ),
 });
 
+export const trackEditSchema = z.object({
+  title: z
+    .string()
+    .trim()
+    .min(1, "Track title is required")
+    .max(100, "Title must be 100 characters or less"),
+  albumName: z
+    .string()
+    .trim()
+    .min(1, "Please select an album")
+    .max(100, "Album name must be 100 characters or less"),
+});
+
 export const profileFormSchema = z.object({
   username: z
     .string()

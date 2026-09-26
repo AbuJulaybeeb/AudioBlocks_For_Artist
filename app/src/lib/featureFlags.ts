@@ -18,6 +18,8 @@ export const featureFlags = {
   useMockMerches: globalMock,
   /** Albums carousel on dashboard/overview — wired to real API when false */
   useMockAlbums: globalMock,
+  /** My Music track list — track edits are simulated locally instead of hitting the API when true */
+  useMockTracks: globalMock,
   /** Fans Engagement widget (top songs, streaming regions, top streamers) — wired to real API when false */
   useMockFansEngagement: globalMock,
   /**
