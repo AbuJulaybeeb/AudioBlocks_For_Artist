@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
 import { toast } from "sonner";
 import MusicLoader from "@/components/MusicLoader";
+import { clearQueryCache } from "@/api/queryClientInstance";
 import useAuthServices from "@/services/authService";
 import { LoginEmailPayload } from "@/types";
 import { loginFormSchema } from "@/types/formValidation";
@@ -25,6 +26,8 @@ export default function LoginPage() {
   const onSubmit = async (data: LoginEmailPayload) => {
     try {
       const result = await loginMutation.mutateAsync(data);
+      // Never let a previous artist's cached dashboard data outlive their session.
+      clearQueryCache();
       Cookies.set("audioblocks_jwt", result.token);
       toast.success("Logged in successfully!");
       router.push("/dashboard");
