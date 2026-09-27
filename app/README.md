@@ -126,6 +126,10 @@ audio files don't hit request-size limits:
 4. Once finalized, a `MintSongButton` appears so the artist can mint the song
    on-chain whenever they're ready (independent of the upload itself).
 
+Before any of this starts, each file is validated client-side (type and size,
+matching the backend's limits) by `src/utils/fileValidation.ts` — see the
+table in [docs/SERVICE_LAYER_API.md](../docs/SERVICE_LAYER_API.md#client-side-file-validation).
+
 > **Album upload** (`src/components/musicUpload/Album.tsx`) is currently a
 > UI prototype — its progress bars are simulated locally and it is not yet
 > wired to the real upload services that `Song.tsx` uses.

@@ -73,6 +73,10 @@ export const FANS_ENGAGEMENT_ENDPOINTS = {
   GET_FANS_ENGAGEMENT: "/artist/fans-engagement",
 };
 
+export const SONG_ENDPOINTS = {
+  UPDATE: (id: string | number) => `/song/${id}`,
+};
+
 export const ALBUM_ENDPOINTS = {
   LIST: "/artist/albums",
   CREATE: "/artist/albums",
